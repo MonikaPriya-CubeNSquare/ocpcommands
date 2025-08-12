@@ -1,0 +1,132 @@
+Embed Ignition into Bootstrap ISO
+ 
+mv rhcos-*.iso rhcos-live.iso
+ 
+podman run --rm -v /root/ocp/:/data -v /var/lib/libvirt/images:/out \
+  quay.io/coreos/coreos-installer:release iso ignition embed \
+  -i /data/bootstrap.ign \
+  -o /out/rhcos-bootstrap.iso \
+  /data/rhcos-live.iso
+ 
+⸻
+Run Bootstrap VM
+ 
+virt-install --name=bootstrap \
+  --memory=8192 --vcpus=4 \
+  --disk path=/var/lib/libvirt/images/bootstrap.qcow2,size=50,format=qcow2 \
+  --os-variant=fedora-coreos-stable \
+  --network network=openshift,mac=52:54:00:0f:f4:11 \
+  --graphics none --console pty,target_type=serial \
+  --cdrom /var/lib/libvirt/images/rhcos-bootstrap.iso \
+  --noautoconsole --check path_in_use=off
+ 
+ 
+virsh list --all
+virsh domifaddr bootstrap
+virsh domifaddr master0
+virsh domifaddr worker1
+ 
+⸻
+ 
+podman run --rm -v /root/ocp/:/data -v /var/lib/libvirt/images:/out \
+  quay.io/coreos/coreos-installer:release iso ignition embed \
+  -i /data/master.ign \
+  -o /out/rhcos-master.iso \
+  /data/rhcos-live.iso
+ 
+ 
+virt-install --name=master0 \
+  --memory=8192 --vcpus=4 \
+  --disk path=/var/lib/libvirt/images/master.qcow2,size=50,format=qcow2 \
+  --os-variant=rhel8.0 \
+  --network network=openshift,mac=52:54:00:f6:01:2a \
+  --graphics none --console pty,target_type=serial \
+  --cdrom /var/lib/libvirt/images/rhcos-master.iso \
+  --noautoconsole --check path_in_use=off
+ 
+ 
+virsh list --all
+virsh domifaddr bootstrap
+virsh domifaddr master0
+ 
+ 
+Monitor Bootstrap Logs
+ 
+virsh console bootstrap
+ 
+Wait until logs show:
+ 
+"Bootstrap complete"
+ 
+ 
+⸻
+ 
+Create Master Nodes Using Same ISO with Respective Ignition Files
+ 
+Repeat virt-install with:
+	•	different MACs (must match DHCP/static)
+	•	--location or embed respective master.ign
+ 
+⸻
+ 
+Monitor Install Progress
+ 
+./openshift-install wait-for bootstrap-complete --dir=. --log-level=debug
+ 
+ 
+⸻
+Approve CSRs and Monitor
+ 
+oc get csr
+oc adm certificate approve <csr_name>
+ 
+ 
+⸻
+Complete Installation
+ 
+./openshift-install wait-for install-complete --dir=. --log-level=debug
+ 
+ 
+⸻
+ 
+virsh list --all
+virsh domifaddr bootstrap
+virsh domifaddr master0
+virsh domifaddr worker1
+ 
+## to start the VM from shutoff status
+Virsh start bootstrap
+Virsh start master0
+ 
+## to shutdown the VM
+—> virsh shutdown bootstrap
+—> virsh shutdown master0
+ 
+## to destroy the vm completely
+virsh destroy bootstrap
+virsh undefine bootstrap --remove-all-storage
+ 
+virsh destroy master0
+virsh undefine master0 --remove-all-storage
+ 
+virsh destroy worker1
+virsh undefine worker1 --remove-all-storage
+ 
+ 
+rm -rf *.ign *.yaml auth/ metadata.json terraform.tfstate terraform.* .openshift_install_state.json
+ 
+rm -rf /var/lib/libvirt/images/rhcos-*
+rm -rf /root/ocp/*.ign
+
+
+
+sudo pkill -f dnsmasq
+sudo systemctl restart libvirtd
+virsh net-destroy openshift
+virsh net-undefine openshift
+virsh net-define virt-net.xml
+virsh net-start openshift
+virsh net-autostart openshift
+
+
+virsh net-list
