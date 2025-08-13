@@ -1,0 +1,23 @@
+virt-net.xml
+<network>
+<name>openshift</name>
+<forward mode='nat'/>
+<bridge name='virbr1' stp='on' delay='0'/>
+192.168.126.1' netmask='255.255.255.0'>
+<dhcp>
+192.168.126.100' end='192.168.126.254'/>
+bootstrap.test-cluster.example.com'
+ip='192.168.126.170'/>
+master0.test-cluster.example.com'
+ip='192.168.126.196'/>
+worker1.test-cluster.example.com'
+ip='192.168.126.147'/>
+api.test-cluster.example.com' ip='192.168.126.196'/>
+api-int.test-cluster.example.com' ip='192.168.126.196'/>
+</dhcp>
+</ip>
+</network>
+virsh net-define virt-net.xml
+virsh net-start openshift
+virsh net-autostart openshift
+virsh net-list
